@@ -91,11 +91,13 @@ func (c *Client) LookupShare(ctx context.Context, shareName, providerAccount str
 		return nil, fmt.Errorf("failed to lookup share: %w", err)
 	}
 
-	// Find all exact matches on both shareName and providerAccount
+	// Find all exact matches on both Snowflake shareName and providerAccount
+	// NOTE: We check snowflakeConfig.shareName (the actual Snowflake share name),
+	// NOT share.ShareName (which is the Observe display name and may not be unique)
 	var matches []Share
 	for _, share := range result.Shares {
-		if share.ShareName == shareName &&
-		   share.SnowflakeConfig != nil &&
+		if share.SnowflakeConfig != nil &&
+		   share.SnowflakeConfig.ShareName == shareName &&
 		   share.SnowflakeConfig.ProviderAccount == providerAccount {
 			matches = append(matches, share)
 		}

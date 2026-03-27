@@ -205,8 +205,8 @@ func TestLookupShare(t *testing.T) {
 	client := New(server.URL, server.Client())
 	ctx := context.Background()
 
-	// Test successful lookup with both shareName and providerAccount
-	share, err := client.LookupShare(ctx, "ACME_CUSTOMER_DATA", "ACME_CORP.US-EAST-1")
+	// Test successful lookup with Snowflake shareName and providerAccount
+	share, err := client.LookupShare(ctx, "CUSTOMER_SHARE_PROD", "ACME_CORP.US-EAST-1")
 	if err != nil {
 		t.Fatalf("LookupShare failed: %v", err)
 	}
@@ -214,8 +214,8 @@ func TestLookupShare(t *testing.T) {
 		t.Errorf("Expected share ID 41012345, got %s", share.Id)
 	}
 
-	// Test that same shareName with different provider account returns different share
-	share2, err := client.LookupShare(ctx, "ACME_CUSTOMER_DATA", "OTHER_CORP.US-WEST-2")
+	// Test that different Snowflake shareName with different provider returns different share
+	share2, err := client.LookupShare(ctx, "CUSTOMER_SHARE_DEV", "OTHER_CORP.US-WEST-2")
 	if err != nil {
 		t.Fatalf("LookupShare failed for second share: %v", err)
 	}
@@ -288,8 +288,9 @@ func TestLookupShareDuplicate(t *testing.T) {
 	client := New(server.URL, server.Client())
 	ctx := context.Background()
 
-	// Test that duplicate shares cause an error
-	_, err := client.LookupShare(ctx, "DUPLICATE_SHARE", "PROVIDER.REGION")
+	// Test that duplicate Snowflake shares cause an error
+	// Both shares have the same snowflakeConfig.shareName and providerAccount
+	_, err := client.LookupShare(ctx, "SHARE_NAME", "PROVIDER.REGION")
 	if err == nil {
 		t.Fatal("Expected error for duplicate shares")
 	}
