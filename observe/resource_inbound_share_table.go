@@ -253,62 +253,122 @@ func resourceInboundShareTableRead(ctx context.Context, data *schema.ResourceDat
 }
 
 func resourceInboundShareTableUpdate(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	// Will be implemented in Commit 7
-	return diag.Errorf("update not yet implemented - this is a placeholder for Commit 7")
+	client := meta.(*observe.Client)
+
+	shareOid, err := oid.NewOID(data.Get("share_id").(string))
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Build update request with only changed fields
+	req := &rest.UpdateTableRequest{}
+	hasChanges := false
+
+	if data.HasChange("description") {
+		req.Description = stringPtr(data.Get("description").(string))
+		hasChanges = true
+	}
+
+	if data.HasChange("dataset_label") {
+		req.DatasetLabel = stringPtr(data.Get("dataset_label").(string))
+		hasChanges = true
+	}
+
+	if data.HasChange("valid_from_field") {
+		req.ValidFromField = stringPtr(data.Get("valid_from_field").(string))
+		hasChanges = true
+	}
+
+	if data.HasChange("valid_to_field") {
+		req.ValidToField = stringPtr(data.Get("valid_to_field").(string))
+		hasChanges = true
+	}
+
+	if data.HasChange("field_mapping") {
+		req.SchemaMapping = make(map[string]rest.FieldMapping)
+		if v, ok := data.GetOk("field_mapping"); ok {
+			mappingSet := v.(*schema.Set)
+			for _, item := range mappingSet.List() {
+				m := item.(map[string]interface{})
+				fieldName := m["field"].(string)
+				req.SchemaMapping[fieldName] = rest.FieldMapping{
+					Type:       m["type"].(string),
+					Conversion: m["conversion"].(string),
+				}
+			}
+		}
+		hasChanges = true
+	}
+
+	if !hasChanges {
+		// No actual changes to update
+		return nil
+	}
+
+	_, err = client.UpdateInboundShareTable(ctx, shareOid.Id, data.Id(), req)
+	if err != nil {
+		return diag.Errorf("failed to update tracked table: %v", err)
+	}
+
+	// Re-read to get updated state
+	return resourceInboundShareTableRead(ctx, data, meta)
 }
 
 func resourceInboundShareTableDelete(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	// Will be implemented in Commit 7
-	return diag.Errorf("delete not yet implemented - this is a placeholder for Commit 7")
+	client := meta.(*observe.Client)
+
+	shareOid, err := oid.NewOID(data.Get("share_id").(string))
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	err = client.DeleteInboundShareTable(ctx, shareOid.Id, data.Id())
+	if err != nil {
+		if rest.HasStatusCode(err, http.StatusNotFound) {
+			// Table already deleted, not an error
+			return nil
+		}
+		return diag.Errorf("failed to delete tracked table: %v", err)
+	}
+
+	return nil
 }
+
 
 func resourceInboundShareTableImport(ctx context.Context, data *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 	client := meta.(*observe.Client)
 
-	// Import using the table OID
-	tableOid, err := oid.NewOID(data.Id())
+	// The share_id must be set in the resource config before import
+	shareOid, err := oid.NewOID(data.Get("share_id").(string))
 	if err != nil {
-		return nil, fmt.Errorf("invalid OID format: %w", err)
+		return nil, fmt.Errorf("share_id must be set in resource config before import: %w", err)
 	}
 
-	if tableOid.Type != oid.TypeInboundShareTable {
-		return nil, fmt.Errorf("expected OID type %s, got %s", oid.TypeInboundShareTable, tableOid.Type)
-	}
+	// The ID from the import command is the table ID
+	tableId := data.Id()
 
-	// Find which share contains this table by listing all shares
-	shares, err := client.ListShares(ctx, nil)
+	// Get the table from the known share (O(1) operation - no search!)
+	result, err := client.GetInboundShareTable(ctx, shareOid.Id, tableId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list shares during import: %w", err)
+		return nil, fmt.Errorf("failed to import table %s from share %s: %w", tableId, shareOid.Id, err)
 	}
 
-	for _, share := range shares.Shares {
-		result, err := client.GetInboundShareTable(ctx, share.Id, tableOid.Id)
-		if err == nil {
-			// Found the table in this share
-			if err := data.Set("share_id", share.Oid().String()); err != nil {
-				return nil, err
-			}
-			data.SetId(result.Table.Id)
+	// Set resource ID and required fields from API response
+	data.SetId(result.Table.Id)
 
-			// Set required fields from the API response
-			if err := data.Set("table_name", result.Table.TableName); err != nil {
-				return nil, err
-			}
-			if err := data.Set("schema_name", result.Table.SchemaName); err != nil {
-				return nil, err
-			}
-			if err := data.Set("dataset_label", result.Dataset.Label); err != nil {
-				return nil, err
-			}
-			if err := data.Set("dataset_kind", result.Dataset.Kind); err != nil {
-				return nil, err
-			}
-
-			return []*schema.ResourceData{data}, nil
-		}
+	if err := data.Set("table_name", result.Table.TableName); err != nil {
+		return nil, err
+	}
+	if err := data.Set("schema_name", result.Table.SchemaName); err != nil {
+		return nil, err
+	}
+	if err := data.Set("dataset_label", result.Dataset.Label); err != nil {
+		return nil, err
+	}
+	if err := data.Set("dataset_kind", result.Dataset.Kind); err != nil {
+		return nil, err
 	}
 
-	return nil, fmt.Errorf("could not find table %s in any share", tableOid.Id)
+	return []*schema.ResourceData{data}, nil
 }
-
 
