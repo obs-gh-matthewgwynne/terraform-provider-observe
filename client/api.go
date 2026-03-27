@@ -1708,11 +1708,3 @@ func (c *Client) DeleteInboundShareTable(ctx context.Context, shareId, tableId s
 	})
 	return
 }
-
-func (c *Client) ListTrackedTables(ctx context.Context, shareId string, params *rest.ListTrackedTablesParams) (*rest.TableListResponse, error) {
-	return c.Rest.ListTrackedTables(ctx, shareId, params)
-}
-
-func (c *Client) ListUntrackedTables(ctx context.Context, shareId string, params *rest.ListUntrackedTablesParams) (*rest.UntrackedTableListResponse, error) {
-	return c.Rest.ListUntrackedTables(ctx, shareId, params)
-}
