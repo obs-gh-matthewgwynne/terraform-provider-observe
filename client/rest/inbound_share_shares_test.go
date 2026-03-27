@@ -232,3 +232,70 @@ func TestLookupShare(t *testing.T) {
 		t.Errorf("Expected 404 status code, got: %v", err)
 	}
 }
+
+func TestLookupShareDuplicate(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{
+			"shares": [
+				{
+					"id": "41012345",
+					"shareName": "DUPLICATE_SHARE",
+					"providerType": "Snowflake",
+					"snowflakeConfig": {
+						"shareName": "SHARE_NAME",
+						"providerAccount": "PROVIDER.REGION"
+					},
+					"status": {
+						"state": "Active",
+						"health": "Healthy"
+					},
+					"createdBy": {"id": "123"},
+					"createdAt": "2026-01-15T10:30:00Z",
+					"updatedBy": {"id": "123"},
+					"updatedAt": "2026-03-20T14:22:00Z",
+					"tableCount": 15
+				},
+				{
+					"id": "41012346",
+					"shareName": "DUPLICATE_SHARE",
+					"providerType": "Snowflake",
+					"snowflakeConfig": {
+						"shareName": "SHARE_NAME",
+						"providerAccount": "PROVIDER.REGION"
+					},
+					"status": {
+						"state": "Active",
+						"health": "Healthy"
+					},
+					"createdBy": {"id": "123"},
+					"createdAt": "2026-01-15T10:30:00Z",
+					"updatedBy": {"id": "123"},
+					"updatedAt": "2026-03-20T14:22:00Z",
+					"tableCount": 5
+				}
+			],
+			"meta": {
+				"totalCount": 2,
+				"limit": 20,
+				"offset": 0
+			}
+		}`))
+	}))
+	defer server.Close()
+
+	client := New(server.URL, server.Client())
+	ctx := context.Background()
+
+	// Test that duplicate shares cause an error
+	_, err := client.LookupShare(ctx, "DUPLICATE_SHARE", "PROVIDER.REGION")
+	if err == nil {
+		t.Fatal("Expected error for duplicate shares")
+	}
+	if !HasStatusCode(err, http.StatusConflict) {
+		t.Errorf("Expected 409 Conflict status code, got: %v", err)
+	}
+	t.Logf("Got expected conflict error: %v", err)
+}
+
