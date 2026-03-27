@@ -91,18 +91,30 @@ func (c *Client) LookupShare(ctx context.Context, shareName, providerAccount str
 		return nil, err
 	}
 
-	// Find exact match on both shareName and providerAccount
+	// Find all exact matches on both shareName and providerAccount
+	var matches []Share
 	for _, share := range result.Shares {
 		if share.ShareName == shareName &&
 		   share.SnowflakeConfig != nil &&
 		   share.SnowflakeConfig.ProviderAccount == providerAccount {
-			return &share, nil
+			matches = append(matches, share)
 		}
 	}
 
-	return nil, ErrorWithStatusCode{
-		StatusCode: http.StatusNotFound,
-		Err:        fmt.Errorf("share with name %q and provider account %q not found", shareName, providerAccount),
+	// Validate exactly one match
+	if len(matches) == 0 {
+		return nil, ErrorWithStatusCode{
+			StatusCode: http.StatusNotFound,
+			Err:        fmt.Errorf("share with name %q and provider account %q not found", shareName, providerAccount),
+		}
 	}
+	if len(matches) > 1 {
+		return nil, ErrorWithStatusCode{
+			StatusCode: http.StatusConflict,
+			Err:        fmt.Errorf("found %d shares with name %q and provider account %q, expected exactly 1", len(matches), shareName, providerAccount),
+		}
+	}
+
+	return &matches[0], nil
 }
 
