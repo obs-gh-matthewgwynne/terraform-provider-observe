@@ -57,24 +57,32 @@ func resourceInboundShareTable() *schema.Resource {
 				ValidateDiagFunc: validateStringInSlice([]string{"Table", "Event", "Resource", "Interval"}, false),
 				Description:      "The kind of dataset to create. Accepted values: `Table`, `Event`, `Resource`, `Interval`.",
 			},
+			// TODO: These fields are marked Computed because the API doesn't currently return them
+			// in the GET response. Once the backend is updated to include these in
+			// ExternalShares-TableResource, remove Computed: true and update the Read function
+			// to populate them from the API response.
 			"valid_from_field": {
 				Type:        schema.TypeString,
 				Optional:    true,
+				Computed:    true, // TODO: Remove when API returns this field
 				Description: "The field to use as the valid_from timestamp (for Event/Interval datasets).",
 			},
 			"valid_to_field": {
 				Type:        schema.TypeString,
 				Optional:    true,
+				Computed:    true, // TODO: Remove when API returns this field
 				Description: "The field to use as the valid_to timestamp (for Interval datasets).",
 			},
 			"description": {
 				Type:        schema.TypeString,
 				Optional:    true,
+				Computed:    true, // TODO: Remove when API returns this field
 				Description: "Description of the tracked table.",
 			},
 			"field_mapping": {
 				Type:        schema.TypeSet,
 				Optional:    true,
+				Computed:    true, // TODO: Remove when API returns this field
 				Description: "Field mapping configuration for type conversions (e.g., timestamp conversions).",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{

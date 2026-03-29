@@ -85,20 +85,48 @@ func (c *Client) GetShare(ctx context.Context, shareId string) (*Share, error) {
 // This is a convenience method that lists shares and filters by exact match on both fields
 // Both shareName and providerAccount are required for uniqueness
 func (c *Client) LookupShare(ctx context.Context, shareName, providerAccount string) (*Share, error) {
-	// List all shares
+	// List all shares and find candidates by shareName
 	result, err := c.ListShares(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	// Find all exact matches on both shareName and providerAccount
-	var matches []Share
+	// Find shares by shareName first
+	// NOTE: The list endpoint returns ShareListItem which doesn't include SnowflakeConfig,
+	// so we need to GET each matching share to verify the provider account.
+	var candidates []Share
 	for _, share := range result.Shares {
-		if share.ShareName == shareName &&
-		   share.SnowflakeConfig != nil &&
-		   share.SnowflakeConfig.ProviderAccount == providerAccount {
-			matches = append(matches, share)
+		// Check that this is a Snowflake share
+		if share.ProviderType != "Snowflake" {
+			continue
 		}
+
+		// Match on shareName (top-level field is the Snowflake share name)
+		if share.ShareName != shareName {
+			continue
+		}
+
+		candidates = append(candidates, share)
+	}
+
+	// Now get full details for each candidate to check provider account
+	var matches []Share
+	for _, candidate := range candidates {
+		fullShare, err := c.GetShare(ctx, candidate.Id)
+		if err != nil {
+			continue
+		}
+
+		// Verify provider account matches
+		if fullShare.SnowflakeConfig == nil {
+			continue
+		}
+
+		if fullShare.SnowflakeConfig.ProviderAccount != providerAccount {
+			continue
+		}
+
+		matches = append(matches, *fullShare)
 	}
 
 	// Validate exactly one match
@@ -109,9 +137,18 @@ func (c *Client) LookupShare(ctx context.Context, shareName, providerAccount str
 		}
 	}
 	if len(matches) > 1 {
+		// Build helpful error message listing the conflicting share IDs
+		shareIDs := make([]string, len(matches))
+		for i, share := range matches {
+			shareIDs[i] = share.Id
+		}
 		return nil, ErrorWithStatusCode{
 			StatusCode: http.StatusConflict,
-			Err:        fmt.Errorf("found %d shares with name %q and provider account %q, expected exactly 1", len(matches), shareName, providerAccount),
+			Err: fmt.Errorf(
+				"multiple shares found with name %q and provider %q. "+
+					"Share names may not be unique. Found %d shares with IDs: %v. "+
+					"Use the share ID directly instead of name+provider lookup",
+				shareName, providerAccount, len(matches), shareIDs),
 		}
 	}
 

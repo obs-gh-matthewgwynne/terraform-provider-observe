@@ -32,3 +32,17 @@ func testAccPreCheck(t *testing.T) {
 		}
 	}
 }
+
+// testAccPreCheckInboundShare verifies prerequisites for inbound share tests.
+// Skips test with WARNING if SKIP_INBOUND_SHARE_TESTS=true.
+func testAccPreCheckInboundShare(t *testing.T) {
+	// Run standard prechecks first
+	testAccPreCheck(t)
+
+	// Check if inbound share tests should be skipped
+	if os.Getenv("SKIP_INBOUND_SHARE_TESTS") == "true" {
+		t.Skip("Inbound share tests disabled via SKIP_INBOUND_SHARE_TESTS=true")
+	}
+
+	// Note: TEST_INBOUND_* environment variables have defaults and don't need to be checked
+}
