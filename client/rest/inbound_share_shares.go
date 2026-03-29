@@ -91,17 +91,72 @@ func (c *Client) LookupShare(ctx context.Context, shareName, providerAccount str
 		return nil, fmt.Errorf("failed to lookup share: %w", err)
 	}
 
-	// Find all exact matches on both Snowflake shareName and providerAccount
-	// NOTE: We check snowflakeConfig.shareName (the actual Snowflake share name),
-	// NOT share.ShareName (which is the Observe display name and may not be unique)
-	var matches []Share
-	for _, share := range result.Shares {
-		if share.SnowflakeConfig != nil &&
-		   share.SnowflakeConfig.ShareName == shareName &&
-		   share.SnowflakeConfig.ProviderAccount == providerAccount {
-			matches = append(matches, share)
+	fmt.Printf("[DEBUG] LookupShare: Looking for shareName=%q providerAccount=%q\n", shareName, providerAccount)
+	fmt.Printf("[DEBUG] LookupShare: Got %d shares from API\n", len(result.Shares))
+
+	// Find shares by shareName first
+	// NOTE: The list endpoint returns ShareListItem which doesn't include SnowflakeConfig,
+	// so we need to GET each matching share to verify the provider account.
+	var candidates []Share
+	for i, share := range result.Shares {
+		fmt.Printf("[DEBUG] LookupShare: Share %d: ID=%s ShareName=%q ProviderType=%q\n",
+			i, share.Id, share.ShareName, share.ProviderType)
+
+		// Check that this is a Snowflake share
+		if share.ProviderType != "Snowflake" {
+			fmt.Printf("[DEBUG] LookupShare: Share %d SKIP: ProviderType=%q not Snowflake\n", i, share.ProviderType)
+			continue
 		}
+
+		// Match on shareName (top-level field is the Snowflake share name)
+		if share.ShareName != shareName {
+			fmt.Printf("[DEBUG] LookupShare: Share %d SKIP: ShareName mismatch (want %q got %q)\n",
+				i, shareName, share.ShareName)
+			continue
+		}
+
+		fmt.Printf("[DEBUG] LookupShare: Share %d is a candidate (name matches)\n", i)
+		candidates = append(candidates, share)
 	}
+
+	fmt.Printf("[DEBUG] LookupShare: Found %d candidate shares by name\n", len(candidates))
+
+	// Now get full details for each candidate to check provider account
+	var matches []Share
+	for i, candidate := range candidates {
+		fmt.Printf("[DEBUG] LookupShare: Getting full details for candidate %d (ID=%s)\n", i, candidate.Id)
+
+		fullShare, err := c.GetShare(ctx, candidate.Id)
+		if err != nil {
+			fmt.Printf("[DEBUG] LookupShare: Failed to get share %s: %v\n", candidate.Id, err)
+			continue
+		}
+
+		fmt.Printf("[DEBUG] LookupShare: Got full share %s\n", fullShare.Id)
+		if fullShare.SnowflakeConfig != nil {
+			fmt.Printf("[DEBUG] LookupShare: SnowflakeConfig: ShareName=%q ProviderAccount=%q\n",
+				fullShare.SnowflakeConfig.ShareName, fullShare.SnowflakeConfig.ProviderAccount)
+		} else {
+			fmt.Printf("[DEBUG] LookupShare: SnowflakeConfig is nil\n")
+		}
+
+		// Verify provider account matches
+		if fullShare.SnowflakeConfig == nil {
+			fmt.Printf("[DEBUG] LookupShare: SKIP: SnowflakeConfig is nil\n")
+			continue
+		}
+
+		if fullShare.SnowflakeConfig.ProviderAccount != providerAccount {
+			fmt.Printf("[DEBUG] LookupShare: SKIP: ProviderAccount mismatch (want %q got %q)\n",
+				providerAccount, fullShare.SnowflakeConfig.ProviderAccount)
+			continue
+		}
+
+		fmt.Printf("[DEBUG] LookupShare: MATCH! Share %s matches both name and provider\n", fullShare.Id)
+		matches = append(matches, *fullShare)
+	}
+
+	fmt.Printf("[DEBUG] LookupShare: Found %d matching shares after verifying provider account\n", len(matches))
 
 	// Validate exactly one match
 	if len(matches) == 0 {
