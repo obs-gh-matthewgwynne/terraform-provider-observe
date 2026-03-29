@@ -45,7 +45,7 @@ import (
 //   - Share exists and is accessible via the API
 //   - All share metadata fields are properly mapped to Terraform attributes
 func TestAccObserveInboundShareDataSource_LookupByName(t *testing.T) {
-	resource.ParallelTest(t, resource.TestCase{
+	resource.Test(t, resource.TestCase{
 		PreCheck:  func() { testAccPreCheckInboundShare(t) },
 		Providers: testAccProviders,
 		Steps: []resource.TestStep{
