@@ -111,9 +111,18 @@ func (c *Client) LookupShare(ctx context.Context, shareName, providerAccount str
 		}
 	}
 	if len(matches) > 1 {
+		// Build helpful error message listing the conflicting share IDs
+		shareIDs := make([]string, len(matches))
+		for i, share := range matches {
+			shareIDs[i] = share.Id
+		}
 		return nil, ErrorWithStatusCode{
 			StatusCode: http.StatusConflict,
-			Err:        fmt.Errorf("found %d shares with name %q and provider account %q, expected exactly 1", len(matches), shareName, providerAccount),
+			Err: fmt.Errorf(
+				"multiple shares found with name %q and provider %q. "+
+					"Share names may not be unique. Found %d shares with IDs: %v. "+
+					"Use the share ID directly instead of name+provider lookup",
+				shareName, providerAccount, len(matches), shareIDs),
 		}
 	}
 
