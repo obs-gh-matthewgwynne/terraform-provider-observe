@@ -412,8 +412,10 @@ func testAccInboundShareTableConfig(datasetLabel, datasetKind, description, tabl
 	config := fmt.Sprintf(`
 # Look up the inbound share by name and provider account
 data "observe_inbound_share" "test" {
-	share_name       = "%s"
-	provider_account = "%s"
+	snowflake_config {
+		share_name       = "%s"
+		provider_account = "%s"
+	}
 }
 
 # Track a table from the share and create a dataset
@@ -454,8 +456,10 @@ func testAccInboundShareTableConfigMultiple(labelPrefix string) string {
 	return fmt.Sprintf(`
 # Look up the inbound share (shared by both tables)
 data "observe_inbound_share" "test" {
-	share_name       = "%s"
-	provider_account = "%s"
+	snowflake_config {
+		share_name       = "%s"
+		provider_account = "%s"
+	}
 }
 
 # Track the main data table
@@ -490,8 +494,10 @@ func testAccInboundShareTableConfigEventDataset(datasetLabel string) string {
 	return fmt.Sprintf(`
 # Look up the inbound share
 data "observe_inbound_share" "test" {
-	share_name       = "%s"
-	provider_account = "%s"
+	snowflake_config {
+		share_name       = "%s"
+		provider_account = "%s"
+	}
 }
 
 # Track table as Event dataset with timestamp field
@@ -523,8 +529,10 @@ func testAccInboundShareTableConfigDropTime(datasetLabel string) string {
 	return fmt.Sprintf(`
 # Look up the inbound share
 data "observe_inbound_share" "test" {
-	share_name       = "%s"
-	provider_account = "%s"
+	snowflake_config {
+		share_name       = "%s"
+		provider_account = "%s"
+	}
 }
 
 # Track table with TIME_TYPE column dropped
@@ -558,8 +566,10 @@ func testAccInboundShareTableConfigWithFieldMapping(datasetLabel, fieldType stri
 	return fmt.Sprintf(`
 # Look up the inbound share
 data "observe_inbound_share" "test" {
-	share_name       = "%s"
-	provider_account = "%s"
+	snowflake_config {
+		share_name       = "%s"
+		provider_account = "%s"
+	}
 }
 
 # Track table with field mapping
@@ -596,8 +606,10 @@ func testAccInboundShareTableConfigMinimal(datasetLabel string) string {
 	return fmt.Sprintf(`
 # Look up the inbound share
 data "observe_inbound_share" "test" {
-	share_name       = "%s"
-	provider_account = "%s"
+	snowflake_config {
+		share_name       = "%s"
+		provider_account = "%s"
+	}
 }
 
 # Track table with minimal configuration
@@ -626,8 +638,10 @@ func testAccInboundShareTableConfigAllFields(datasetLabel string) string {
 	return fmt.Sprintf(`
 # Look up the inbound share
 data "observe_inbound_share" "test" {
-	share_name       = "%s"
-	provider_account = "%s"
+	snowflake_config {
+		share_name       = "%s"
+		provider_account = "%s"
+	}
 }
 
 # Track table with all mutable fields configured
